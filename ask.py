@@ -3,32 +3,35 @@
 Usage:
     python ask.py "How much is the home office stipend?"
     python ask.py "How much is the home office stipend?" --retrieve-only
+    python ask.py "What does EXP-4 say?" --mode vector
 """
 import argparse
 
 from rag.config import TOP_K
 from rag.generation import generate_answer
-from rag.retrieval import vector_search
+from rag.retrieval import retrieve
 
 
 def print_chunks(chunks):
     print("Retrieved chunks:")
     for i, c in enumerate(chunks, start=1):
         m = c["metadata"]
-        print(f"  [{i}] score={c['score']:.3f}  {m['source']} | {m['section']}")
+        print(f"  [{i}] score={c['score']:.4f}  {m['source']} | {m['section']}")
 
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("question")
     parser.add_argument("-k", type=int, default=TOP_K, help="number of chunks to retrieve")
+    parser.add_argument("--mode", choices=["vector", "keyword", "hybrid"], default="hybrid")
     parser.add_argument(
         "--retrieve-only", action="store_true", help="show retrieval, skip the LLM call"
     )
     args = parser.parse_args()
 
-    print(f"Question: {args.question}\n")
-    chunks = vector_search(args.question, k=args.k)
+    print(f"Question: {args.question}")
+    print(f"Retrieval mode: {args.mode}\n")
+    chunks = retrieve(args.question, mode=args.mode, k=args.k)
     print_chunks(chunks)
     if args.retrieve_only:
         return
