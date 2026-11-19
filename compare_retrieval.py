@@ -23,7 +23,9 @@ def main():
         print(f"Expected chunk: {args.expect}")
 
     for mode in ("vector", "hybrid"):
-        hits = retrieve(args.question, mode=mode, k=args.k, collection=collection)
+        hits = retrieve(
+            args.question, mode=mode, k=args.k, use_rerank=False, collection=collection
+        )
         print(f"\n{mode.upper()} top {args.k}:")
         for rank, h in enumerate(hits, start=1):
             marker = "  <-- expected" if h["id"] == args.expect else ""

@@ -1,17 +1,22 @@
 """Retrieval: turn a question into a ranked list of chunks.
 
-Three strategies:
+Three first-stage strategies:
   vector_search   - semantic similarity between question and chunk embeddings
   keyword_search  - exact term matching against the chunk text
   hybrid_search   - both, fused with Reciprocal Rank Fusion (RRF)
+
+retrieve() optionally adds a second stage: a cross-encoder reranks the
+first-stage candidates (see rag/rerank.py).
 """
 import math
 import re
 
 from rag.config import TOP_K
 from rag.index import embed, get_collection
+from rag.rerank import rerank
 
-# How many candidates each retriever contributes before fusion.
+# How many candidates each retriever contributes before fusion, and how many
+# fused candidates are handed to the reranker.
 CANDIDATES = 10
 # Standard RRF constant: dampens the gap between rank 1 and rank 2 so that
 # no single retriever dominates the fused ranking.
@@ -108,7 +113,16 @@ def hybrid_search(question, k=TOP_K, collection=None):
     return sorted(fused.values(), key=lambda h: -h["score"])[:k]
 
 
-def retrieve(question, mode="hybrid", k=TOP_K, collection=None):
-    """Single entry point used by ask.py and the evaluation harness."""
+def retrieve(question, mode="hybrid", k=TOP_K, use_rerank=True, collection=None):
+    """Single entry point used by ask.py and the evaluation harness.
+
+    With use_rerank=True (the default) this is a two-stage pipeline:
+      1. first-stage search returns CANDIDATES chunks (wide net, cheap)
+      2. the cross-encoder re-scores them and the best k are kept
+    With use_rerank=False the first-stage top k is returned as is.
+    """
     search = {"vector": vector_search, "keyword": keyword_search, "hybrid": hybrid_search}[mode]
-    return search(question, k=k, collection=collection)
+    if not use_rerank:
+        return search(question, k=k, collection=collection)
+    candidates = search(question, k=CANDIDATES, collection=collection)
+    return rerank(question, candidates, top_n=k)
