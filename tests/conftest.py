@@ -23,6 +23,34 @@ requires_llm = pytest.mark.skipif(
 )
 
 
+class FakeCollection:
+    """Stand-in for a chromadb collection, so unit tests need no models or disk.
+
+    get() and query() return dicts shaped like chromadb's GetResult and
+    QueryResult, including None for fields that were not stored.
+    """
+
+    def __init__(self, ids, documents=None, metadatas=None, distances=None):
+        self.ids = ids
+        self.documents = documents
+        self.metadatas = metadatas
+        self.distances = distances
+
+    def get(self, include=None):
+        return {"ids": self.ids, "documents": self.documents, "metadatas": self.metadatas}
+
+    def query(self, query_embeddings, n_results):
+        def row(values):
+            return None if values is None else [values[:n_results]]
+
+        return {
+            "ids": [self.ids[:n_results]],
+            "documents": row(self.documents),
+            "metadatas": row(self.metadatas),
+            "distances": row(self.distances),
+        }
+
+
 def pytest_configure(config):
     config.eval_results = {}  # filled in by tests, printed in the summary
 
