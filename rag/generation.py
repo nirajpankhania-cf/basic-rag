@@ -42,7 +42,7 @@ def generate_answer(question, chunks, client=None):
             {"role": "user", "content": build_prompt(question, chunks)},
         ],
     )
-    answer = response.choices[0].message.content.strip()
+    answer = (response.choices[0].message.content or "").strip()
 
     cited_numbers = sorted({int(n) for n in re.findall(r"\[(\d+)\]", answer)})
     sources = [
