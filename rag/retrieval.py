@@ -12,7 +12,7 @@ import math
 import re
 
 from rag.config import TOP_K
-from rag.index import embed, get_collection
+from rag.index import embed, get_all, get_collection, query
 from rag.rerank import rerank
 
 # How many candidates each retriever contributes before fusion, and how many
@@ -37,11 +37,11 @@ def vector_search(question, k=TOP_K, collection=None):
     higher is better).
     """
     collection = collection or get_collection()
-    res = collection.query(query_embeddings=embed([question]), n_results=k)
+    hits = query(collection, embed([question])[0], k)
     return [
         {"id": id_, "text": text, "metadata": meta, "score": 1 - dist}
         for id_, text, meta, dist in zip(
-            res["ids"][0], res["documents"][0], res["metadatas"][0], res["distances"][0]
+            hits.ids, hits.documents, hits.metadatas, hits.distances
         )
     ]
 
@@ -62,8 +62,8 @@ def keyword_search(question, k=TOP_K, collection=None):
     'policy' that appears in all of them.
     """
     collection = collection or get_collection()
-    stored = collection.get(include=["documents", "metadatas"])
-    texts = [t.lower() for t in stored["documents"]]
+    stored = get_all(collection)
+    texts = [t.lower() for t in stored.documents]
     n = len(texts)
 
     scores = [0.0] * n
@@ -79,9 +79,9 @@ def keyword_search(question, k=TOP_K, collection=None):
     ranked = sorted((i for i in range(n) if scores[i] > 0), key=lambda i: -scores[i])
     return [
         {
-            "id": stored["ids"][i],
-            "text": stored["documents"][i],
-            "metadata": stored["metadatas"][i],
+            "id": stored.ids[i],
+            "text": stored.documents[i],
+            "metadata": stored.metadatas[i],
             "score": scores[i],
         }
         for i in ranked[:k]

@@ -1,0 +1,14 @@
+{
+  "include": [
+    "rag",
+    "tests",
+    "ask.py",
+    "ingest.py",
+    "compare_rerank.py",
+    "compare_retrieval.py",
+    "minimal_loop.py"
+  ],
+  "venvPath": ".",
+  "venv": ".venv",
+  "typeCheckingMode": "basic"
+}

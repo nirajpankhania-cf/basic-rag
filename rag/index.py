@@ -1,5 +1,7 @@
 """Embed chunks with sentence-transformers and store them in chromadb."""
+from dataclasses import dataclass, field
 from functools import lru_cache
+from typing import Any
 
 import chromadb
 from sentence_transformers import SentenceTransformer
@@ -54,3 +56,58 @@ def get_collection(chroma_dir=CHROMA_DIR):
     except Exception:
         pass
     return build_index(chroma_dir=chroma_dir)
+
+
+@dataclass
+class StoredChunks:
+    """Every chunk in the collection, as parallel lists.
+
+    Fields are never None: an empty collection gives empty lists.
+    """
+
+    ids: list[str] = field(default_factory=list)
+    documents: list[str] = field(default_factory=list)
+    metadatas: list[dict[str, Any]] = field(default_factory=list)
+
+
+@dataclass
+class QueryHits:
+    """Nearest neighbours for one query embedding, as parallel lists.
+
+    Fields are never None: no matches gives empty lists.
+    """
+
+    ids: list[str] = field(default_factory=list)
+    documents: list[str] = field(default_factory=list)
+    metadatas: list[dict[str, Any]] = field(default_factory=list)
+    distances: list[float] = field(default_factory=list)
+
+
+def _first(rows):
+    """First row of a per-query result, or [] if chroma did not return the field."""
+    return rows[0] if rows else []
+
+
+def get_all(collection) -> StoredChunks:
+    """Fetch every stored chunk with its text and metadata.
+
+    chromadb types each optional field as Optional[...] because it is None
+    when left out of `include`; this is the one place that is dealt with.
+    """
+    res = collection.get(include=["documents", "metadatas"])
+    return StoredChunks(
+        ids=list(res["ids"]),
+        documents=list(res["documents"] or []),
+        metadatas=[dict(m) for m in res["metadatas"] or []],
+    )
+
+
+def query(collection, embedding, k) -> QueryHits:
+    """Return the k chunks nearest to one query embedding."""
+    res = collection.query(query_embeddings=[embedding], n_results=k)
+    return QueryHits(
+        ids=list(_first(res["ids"])),
+        documents=list(_first(res["documents"])),
+        metadatas=[dict(m) for m in _first(res["metadatas"])],
+        distances=[float(d) for d in _first(res["distances"])],
+    )

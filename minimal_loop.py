@@ -34,13 +34,15 @@ print(f"Chunks stored in collection: {collection.count()}")
 question = "How many vacation days do I get each year?"
 query_embedding = model.encode([question]).tolist()
 results = collection.query(query_embeddings=query_embedding, n_results=2)
+# chromadb types optional fields as Optional[...]; coerce to empty lists once, here.
+ids = results["ids"][0]
+docs = (results["documents"] or [[]])[0]
+dists = (results["distances"] or [[]])[0]
 
 print(f"\nQuestion: {question}")
-for rank, (doc_id, doc, dist) in enumerate(
-    zip(results["ids"][0], results["documents"][0], results["distances"][0]), start=1
-):
+for rank, (doc_id, doc, dist) in enumerate(zip(ids, docs, dists), start=1):
     print(f"  {rank}. [{doc_id}] distance={dist:.4f}  {doc}")
 
-top_id = results["ids"][0][0]
+top_id = ids[0]
 assert top_id == "pto", f"Expected 'pto' to rank first, got '{top_id}'"
 print("\nPASS: the PTO text ranked first for a vacation question.")
